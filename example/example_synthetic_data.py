@@ -30,8 +30,8 @@ q = 1    # dimension of z
 # Covariance matrices
 Cov_xzy = np.array([[1, 0, .3, .5],
                     [0, 1, .3, .5],
-                    [.3, .3, 1, .5],
-                    [.5, .5, .5, 1]])
+                    [.3, .3, 1, .7],
+                    [.5, .5, .7, 1]])
 LA.eig(Cov_xzy)
 plt.figure()
 sns.heatmap(Cov_xzy)
@@ -91,8 +91,8 @@ Theta = np.transpose(np.dot(Cov_xzy[d:d+q, 0:d], inv(Cov_xzy[0:d, 0:d])))
 # (x, y, z) ~ N(mu, Cov)
 Cov_xyz = np.array([[1, 0, .5, .3,],
                     [0, 1, .5, .3,],
-                    [.5, .5, 1, .5],
-                    [.3, .3, .5, 1]])
+                    [.5, .5, 1, .7],
+                    [.3, .3, .7, 1]])
 LA.eig(Cov_xyz)
 plt.figure()
 sns.heatmap(Cov_xyz)
@@ -123,7 +123,7 @@ for j in range(0, 105, 1):
         y_predict_unconst[i] = np.dot(np.transpose(w_unconst), xy[0:d].reshape(d,1))
         
         z_predict_2stage[i] = np.dot(np.transpose(Theta), xy[0:d].reshape(d,1))
-        y_predict_2stage[i] = np.dot(alpha_beta_joint, xy[0:d+q].reshape(d+q,1))
+        y_predict_2stage[i] = np.dot(alpha_beta_joint, np.vstack((xy[0:d].reshape(d,1), z_predict_2stage[i].reshape(q,1))).reshape(d+q,1))
         
     MSE_const[j] = mean_squared_error(y_true, y_predict_const) 
     MSE_unconst[j] = mean_squared_error(y_true, y_predict_unconst) 
