@@ -9,6 +9,7 @@ from sklearn.metrics import mean_squared_error
 from numpy import linalg as LA
 import numpy as np
 from numpy.linalg import inv
+from scipy.stats import norm
 import seaborn as sns
 import matplotlib.pyplot as plt
 from cvxopt.solvers import qp
@@ -28,12 +29,12 @@ q = 1    # dimension of z
 # =============================================================================
 
 # Covariance matrices
-Cov_xzy = np.array([[1, 0, .3, .5],
-                    [0, 1, .3, .5],
-                    [.3, .3, 1, .7],
-                    [.5, .5, .7, 1]])
+Cov_xzy = np.array([[1, 0, .25, .5],
+                    [0, 1, .25, .5],
+                    [.25, .25, 1, .5],
+                    [.5, .5, .5, 1]])
 LA.eig(Cov_xzy)
-plt.figure()
+plt.figure(figsize=(6, 5))
 sns.heatmap(Cov_xzy)
 
 alpha_beta_joint = np.dot(Cov_xzy[-1, 0:-1].reshape(1,(d+q)), inv(Cov_xzy[0:-1, 0:-1]))
@@ -89,13 +90,13 @@ Theta = np.transpose(np.dot(Cov_xzy[d:d+q, 0:d], inv(Cov_xzy[0:d, 0:d])))
 
 # Generate testing data
 # (x, y, z) ~ N(mu, Cov)
-Cov_xyz = np.array([[1, 0, .5, .3,],
-                    [0, 1, .5, .3,],
-                    [.5, .5, 1, .7],
-                    [.3, .3, .7, 1]])
-LA.eig(Cov_xyz)
-plt.figure()
-sns.heatmap(Cov_xyz)
+Cov_xyz = np.array([[1, 0, .5, .25,],
+                    [0, 1, .5, .25,],
+                    [.5, .5, 1, .5],
+                    [.25, .25, .5, 1]])
+#LA.eig(Cov_xyz)
+#plt.figure()
+#sns.heatmap(Cov_xyz)
 
 # (x, y | z) ~ N(mu_xy_z, Cov_xy_z)
 def conditional_mean(z, mu_z, mu_xy, Cov_xyz):
@@ -129,13 +130,20 @@ for j in range(0, 105, 1):
     MSE_unconst[j] = mean_squared_error(y_true, y_predict_unconst) 
     MSE_2stages[j] = mean_squared_error(y_true, y_predict_2stage) 
     
-plt.figure()
+z = np.random.normal(loc=0, scale=1, size=100000)     
+    
+plt.figure(figsize=(5, 5))
 sns.regplot(np.arange(-10, 11, .2), MSE_const.reshape(105), order=3, label="Constrained")
-sns.regplot(np.arange(-10, 11, .2), MSE_unconst.reshape(105), order=3, label="Unconstrained")  
-sns.regplot(np.arange(-10, 11, .2), MSE_2stages.reshape(105), order=3, label="2 stages") 
-plt.xlim((-11, 11))
+sns.regplot(np.arange(-10, 11, .2), MSE_unconst.reshape(105), order=3, label="Linear MMSE") 
+#sns.regplot(np.arange(-10, 11, .2), MSE_2stages.reshape(105), order=3, label="Two-stage") 
+plt.xlim((-10, 10))
 plt.ylim((0, 10))
 plt.legend()
 #plt.legend("Constrained", "Unconstrained")      
 plt.xlabel("z")
 plt.ylabel("MSE(z)")
+
+plt.figure(figsize=(5, 5))
+sns.distplot(z) 
+plt.xlim((-10, 10))
+plt.ylim((0, 1))
