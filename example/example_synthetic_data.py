@@ -206,7 +206,7 @@ plt.xlabel("z")
 plt.ylabel("PDF")
 
 plt.figure(figsize=(5, 3.5))
-sns.lineplot(np.arange(-10, 11, .2), MSE_lowerbound.reshape(105), color='k', label="Lower bound")
+#sns.lineplot(np.arange(-10, 11, .2), MSE_lowerbound.reshape(105), color='k', label="Lower bound")
 sns.lineplot(np.arange(-10, 11, .2), MSE_const.reshape(105), label="Constrained")
 sns.lineplot(np.arange(-10, 11, .2), MSE_unconst.reshape(105), label="Linear MMSE") 
 sns.lineplot(np.arange(-10, 11, .2), MSE_biweight.reshape(105), label="Binary Weight") 
