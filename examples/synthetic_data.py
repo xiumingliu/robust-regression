@@ -129,6 +129,7 @@ MSE_unconst = np.zeros((105, 1))
 MSE_biweight = np.zeros((105, 1))
 MSE_combine = np.zeros((105, 1))
 #MSE_2stages = np.zeros((105, 1))
+MSE_compare = np.zeros((105, 1))
 for j in range(0, 105, 1):
     z = -10 + j*.2
     mu_xy_z, Cov_xy_z = conditional_mean(z, 0, 0, Cov_xyz)
@@ -140,6 +141,7 @@ for j in range(0, 105, 1):
 #    y_predict_2stage = np.zeros((5000,1))
     y_predict_biweight = np.zeros((5000,1))
     y_predict_combine = np.zeros((5000,1))
+    y_predict_compare = np.zeros((5000,1))
     
     for i in range(0, 5000):
         xy = np.random.multivariate_normal(mu_xy_z.reshape(d+1), Cov_xy_z)
@@ -169,6 +171,16 @@ for j in range(0, 105, 1):
         b = 1 - a
         y_predict_combine[i] = a*y_predict_const[i] + b*y_predict_unconst[i]
         
+        # Compare the loss 
+        loss_w_const = np.square( (np.dot(Gamma, (alpha - w_const)) + beta)*z_predict_2stage[i] )
+        loss_w_unconst = np.square( (np.dot(Gamma, (alpha - w_unconst)) + beta)*z_predict_2stage[i] )
+        if loss_w_unconst < loss_w_const:
+            y_predict_compare[i] = np.dot(np.transpose(w_unconst), xy[0:d].reshape(d,1))
+        else:
+            y_predict_compare[i] = np.dot(np.transpose(w_const), xy[0:d].reshape(d,1))
+            
+            
+        
     # MSE
     MSE_lowerbound[j] = mean_squared_error(y_true, y_predict_lowerbound)
     MSE_const[j] = mean_squared_error(y_true, y_predict_const) 
@@ -176,6 +188,7 @@ for j in range(0, 105, 1):
 #    MSE_2stages[j] = mean_squared_error(y_true, y_predict_2stage) 
     MSE_biweight[j] = mean_squared_error(y_true, y_predict_biweight) 
     MSE_combine[j] = mean_squared_error(y_true, y_predict_combine) 
+    MSE_compare[j] = mean_squared_error(y_true, y_predict_compare) 
 
 # =============================================================================
 # Visualization of results    
@@ -202,12 +215,13 @@ plt.figure(figsize=(5, 5))
 gs = gridspec.GridSpec(2, 1, height_ratios=[7, 3])
 
 ax0 = plt.subplot(gs[0])
-plt.plot(np.arange(-10, 11, .2), MSE_lowerbound.reshape(105), 'k-', label="Lower bound ($z$ accessible)")
+plt.plot(np.arange(-10, 11, .2), MSE_lowerbound.reshape(105), 'k-', label="Lower bound")
 #plt.plot(np.arange(-10, 11, .2), MSE_unconst.reshape(105), 'r--', label=r"$\bm{w}_{MMSE}^\top\bm{\phi}(\bm{x}_*)$") 
 #plt.plot(np.arange(-10, 11, .2), MSE_const.reshape(105), 'b:', label=r"$\bm{w}_{C}^\top\bm{\phi}(\bm{x}_*)$")
-plt.plot(np.arange(-10, 11, .2), MSE_unconst.reshape(105), 'r--', label="Average minimum loss") 
-plt.plot(np.arange(-10, 11, .2), MSE_const.reshape(105), 'b:', label=r"$z$-orthogonal loss")
-#plt.plot(np.arange(-10, 11, .2), MSE_combine.reshape(105), 'g:', label=r"Our method")
+plt.plot(np.arange(-10, 11, .2), MSE_unconst.reshape(105), 'r--', label=r"$\bm{w}_o$") 
+plt.plot(np.arange(-10, 11, .2), MSE_const.reshape(105), 'b:', label=r"$\bm{w}_c$")
+plt.plot(np.arange(-10, 11, .2), MSE_compare.reshape(105), 'm-', label=r"Peter's idea")
+plt.plot(np.arange(-10, 11, .2), MSE_combine.reshape(105), 'g:', label=r"Our method")
 plt.setp(ax0.get_xticklabels(), visible=False)
 #sns.regplot(np.arange(-10, 11, .2), MSE_2stages.reshape(105), order=3, label="Two-stage") 
 #plt.plot(z, rz.pdf(z), 'k-', lw=2, label='p(z)')
@@ -215,20 +229,21 @@ plt.xlim((-10, 10))
 plt.ylim((0, 10))
 plt.legend(loc=2)   
 #plt.xlabel("z")
-plt.ylabel("E$[(y - \widehat{y})^2 | z]$")
+plt.ylabel("E$[(y - \widehat{y})^2\ |\ z]$")
 
 ax1 = plt.subplot(gs[1])
 #plt.figure(figsize=(5, 5))
-plt.plot(z1, rz.pdf(z1), 'k-', lw=2, label='Normal')
+#plt.plot(z1, rz.pdf(z1), 'k-', lw=2, label='Normal')
 #plt.plot(z_x.reshape(100), rz_x.pdf(z_x).reshape(100), 'k--', lw=2, label='$p(z_* | x_* )$')
 plt.plot(z, p_z,  'k--', label='Fat-tailed')
 plt.xlim((-10, 10))
 plt.ylim((0.0001, 500))
 #plt.legend(loc=2, ncol=2)   
-plt.legend(loc=2)   
+#plt.legend(loc=2)   
 plt.xlabel("$z$")
 ax1.set_yscale('log')
 plt.yticks([0.0001, 0.01, 1])
+plt.ylim((0.0001, 1))
 plt.ylabel("Density")
 
 #plt.savefig("example1.pdf", bbox_inches='tight')

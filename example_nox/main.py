@@ -12,6 +12,7 @@ import numpy as np
 import cvxpy as cp
 from sklearn.preprocessing import PowerTransformer
 from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import LogisticRegression
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -35,8 +36,8 @@ pt = PowerTransformer()
 pt.fit(nox_daily_average.reshape(-1, 1))
 nox_daily_average_transformed = pt.transform(nox_daily_average.reshape(-1, 1)).reshape(-1)
 
-plt.figure()
-plt.hist(nox_daily_average_transformed)
+#plt.figure()
+#plt.hist(nox_daily_average_transformed)
 
 #temperature_daily = temperature.reshape(3652, 24)
 #temperature_daily_average = np.average(temperature_daily, axis=1)
@@ -56,14 +57,14 @@ pt_ozone = PowerTransformer()
 pt_ozone.fit(ozone_daily_average.reshape(-1, 1))
 ozone_daily_average_transformed = pt_ozone.transform(ozone_daily_average.reshape(-1, 1)).reshape(-1)
 
-plt.figure()
-plt.hist(ozone_daily_average_transformed)
-
-plt.figure()
-plt.plot(nox_daily_average_transformed[0:10000])
-#plt.plot(temperature_daily_average_transformed[0:10000])
-#plt.plot(rh_daily_average[0:10000])
-plt.plot(ozone_daily_average_transformed[0:10000])
+#plt.figure()
+#plt.hist(ozone_daily_average_transformed)
+#
+#plt.figure()
+#plt.plot(nox_daily_average_transformed[0:10000])
+##plt.plot(temperature_daily_average_transformed[0:10000])
+##plt.plot(rh_daily_average[0:10000])
+#plt.plot(ozone_daily_average_transformed[0:10000])
 
 def broadcasting_app(a, L, S ):  # Window len = L, Stride len/stepsize = S
     nrows = ((a.size-L)//S)+1
@@ -72,7 +73,7 @@ def broadcasting_app(a, L, S ):  # Window len = L, Stride len/stepsize = S
 # =============================================================================
 # Data
 # =============================================================================
-L = 14
+L = 56
 d = 2*L
 X = np.concatenate((np.transpose(broadcasting_app(nox_daily_average_transformed, L, 1)), np.transpose(broadcasting_app(ozone_daily_average_transformed, L, 1))))
 #X = np.concatenate((X, np.ones((1, np.shape(X)[1]))))
@@ -194,10 +195,25 @@ Y_predict_const = pt.inverse_transform(np.dot(np.transpose(w_c), X_test.reshape(
 Y_predict_unconst = pt.inverse_transform(np.dot(np.transpose(w_opt), X_test.reshape(d,N_test)).reshape(N_test, 1))
 #Y_predict_unconst = np.dot(np.transpose(w_opt), X_test.reshape(d,N_test)).reshape(N_test, 1)
 
+alpha = 0.30
+
+Z_tail_index = np.logical_or(Z.reshape(N) < -np.sqrt(1/alpha)*np.std(Z), Z.reshape(N) > np.sqrt(1/alpha)*np.std(Z))
+Z_tail = np.zeros(N)
+Z_tail[Z_tail_index] = 1    
+Z_predict_train = np.dot(np.transpose(w_z), X.reshape(d,N))
+Z_distance = np.zeros(N)
+for i in range(N):
+    Z_distance[i] = distance.mahalanobis(Z_predict_train[:, i], np.zeros(q), np.cov(Z_predict_train)) - np.sqrt(np.cov(Z_predict_train)/alpha)
+#    Z_distance[i] = distance.mahalanobis(Z[:, i], np.zeros(q), np.cov(Z)) - np.sqrt(np.cov(Z)/alpha)
+    
+clf = LogisticRegression(random_state=0, solver='lbfgs', fit_intercept=False)
+clf.fit(Z_distance.reshape(-1, 1), Z_tail)
 
 # Threshold 
-T = 1
-K = 10
+#T = 1
+#K = 10
+T = np.sqrt(np.cov(Z_predict_train)/alpha)
+K = clf.coef_
 
 Z_std = np.std(Z_training)
 Z_mean = np.mean(Z_training)
@@ -227,12 +243,12 @@ Error_combine = np.abs(pt.inverse_transform(Y_test.reshape(N_test).reshape(-1, 1
 
 Z_test_inv_transformed = pt_ozone.inverse_transform(Z_test.reshape(N_test, 1))
 
-plt.figure()
-plt.scatter(Z_test.reshape(N_test, 1), np.abs(Error_const), label='Constrained')
-plt.scatter(Z_test.reshape(N_test, 1), np.abs(Error_unconst), label='LMMSE')
-plt.scatter(Z_test.reshape(N_test, 1), np.abs(Error_combine), label='Combined')
-plt.xlabel('Ozone')
-plt.ylabel('Absolute residual (NO2)')
+#plt.figure()
+#plt.scatter(Z_test.reshape(N_test, 1), np.abs(Error_const), label='Constrained')
+#plt.scatter(Z_test.reshape(N_test, 1), np.abs(Error_unconst), label='LMMSE')
+#plt.scatter(Z_test.reshape(N_test, 1), np.abs(Error_combine), label='Combined')
+#plt.xlabel('Ozone')
+#plt.ylabel('Absolute residual (NO2)')
 
 k = 2
 
@@ -240,10 +256,17 @@ RMSE_const_typical = np.sqrt(np.mean(np.square(Error_const[np.logical_and(Z_test
 RMSE_unconst_typical = np.sqrt(np.mean(np.square(Error_unconst[np.logical_and(Z_test>Z_mean-k*Z_std, Z_test<Z_mean+k*Z_std)[0]])))
 RMSE_combine_typical = np.sqrt(np.mean(np.square(Error_combine[np.logical_and(Z_test>Z_mean-k*Z_std, Z_test<Z_mean+k*Z_std)[0]])))
 
-
 RMSE_const_tail = np.sqrt(np.mean(np.square(Error_const[np.logical_or(Z_test<Z_mean-k*Z_std, Z_test>Z_mean+k*Z_std)[0]])))
 RMSE_unconst_tail = np.sqrt(np.mean(np.square(Error_unconst[np.logical_or(Z_test<Z_mean-k*Z_std, Z_test>Z_mean+k*Z_std)[0]])))
 RMSE_combine_tail = np.sqrt(np.mean(np.square(Error_combine[np.logical_or(Z_test<Z_mean-k*Z_std, Z_test>Z_mean+k*Z_std)[0]])))
+
+#RMSE_const_typical = np.sqrt(np.mean(np.square(Error_const[np.logical_and(Z_test>Z_mean-T, Z_test<Z_mean+T)[0]])))
+#RMSE_unconst_typical = np.sqrt(np.mean(np.square(Error_unconst[np.logical_and(Z_test>Z_mean-T, Z_test<Z_mean+T)[0]])))
+#RMSE_combine_typical = np.sqrt(np.mean(np.square(Error_combine[np.logical_and(Z_test>Z_mean-T, Z_test<Z_mean+T)[0]])))
+#
+#RMSE_const_tail = np.sqrt(np.mean(np.square(Error_const[np.logical_or(Z_test<Z_mean-T, Z_test>Z_mean+T)[0]])))
+#RMSE_unconst_tail = np.sqrt(np.mean(np.square(Error_unconst[np.logical_or(Z_test<Z_mean-T, Z_test>Z_mean+T)[0]])))
+#RMSE_combine_tail = np.sqrt(np.mean(np.square(Error_combine[np.logical_or(Z_test<Z_mean-T, Z_test>Z_mean+T)[0]])))
 
 ratio_normal_const = RMSE_const_typical/RMSE_unconst_typical - 1
 ratio_normal_combine = RMSE_combine_typical/RMSE_unconst_typical - 1
@@ -258,20 +281,20 @@ print("combine_tail = %.4f" %ratio_tail_combine)
 
 
 
-plt.figure()
-plt.hist(Z_training.reshape(N_training), density=True)
-
-Z_tail_index = np.logical_or(Z_training.reshape(N_training) < Z_mean-k*Z_std, Z_training.reshape(N_training) > Z_mean+k*Z_std)
-Z_tail = np.zeros(N_training)
-Z_tail[Z_tail_index] = 1
-
-SigmaX = np.cov(X_training)
-muX = np.mean(X_training, axis = 1)
-X_distance = np.zeros(N_training)
-for i in range(N_training):
-    X_distance[i] = distance.mahalanobis(X_training[:, i], muX, SigmaX)
-
-plt.figure()
-sns.regplot(X_distance, Z_tail, logistic=True)
-plt.yticks([0, 1], ['Typical', 'Tail'])
-plt.xlabel('Mahalanobis distance between a realization of X and p(x)')
+#plt.figure()
+#plt.hist(Z_training.reshape(N_training), density=True)
+#
+#Z_tail_index = np.logical_or(Z_training.reshape(N_training) < Z_mean-k*Z_std, Z_training.reshape(N_training) > Z_mean+k*Z_std)
+#Z_tail = np.zeros(N_training)
+#Z_tail[Z_tail_index] = 1
+#
+#SigmaX = np.cov(X_training)
+#muX = np.mean(X_training, axis = 1)
+#X_distance = np.zeros(N_training)
+#for i in range(N_training):
+#    X_distance[i] = distance.mahalanobis(X_training[:, i], muX, SigmaX)
+#
+#plt.figure()
+#sns.regplot(X_distance, Z_tail, logistic=True)
+#plt.yticks([0, 1], ['Typical', 'Tail'])
+#plt.xlabel('Mahalanobis distance between a realization of X and p(x)')

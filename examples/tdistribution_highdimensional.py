@@ -67,16 +67,19 @@ def multivariate_t_rvs(m, S, df=np.inf, n=1):
 
 # Split to x, y, z
 # feature = (x, z), target = (y)
-d = 3    # dimension of x
-q = 1    # dimension of z
+d = 5    # dimension of x
+d0 = 3
+q = 2    # dimension of z
 df = 3
 # Covariance matrices
-Sigma_x = np.array([[1, .5, .5],
-                    [.5, 1, .5],
-                    [.5, .5, 1]])
+#Sigma_x = np.array([[1, .5, .5],
+#                    [.5, 1, .5],
+#                    [.5, .5, 1]])
+Sigma_x = .5*np.ones((d, d))
+np.fill_diagonal(Sigma_x, 1)
 
 # Generated finite sample (size N) training data
-N = np.int(1000)
+N = np.int(100)
 N_test = np.int(1e6)
 max_iteration = 1
 alpha = 0.1
@@ -90,13 +93,16 @@ ratio_tail_combine = np.zeros(max_iteration)
 for iteration in range(max_iteration):
     t = time.time()
     
-    Z = np.transpose(np.random.standard_t(df, N)).reshape((q, N))
+    Z = np.transpose(np.random.standard_t(df, (q, N))).reshape((q, N))
     
     #    V = np.transpose(np.random.multivariate_normal(np.zeros(d), Sigma_x, N))
     V = np.transpose(multivariate_t_rvs(np.zeros(d), Sigma_x, df, N))
-    X = np.ones((d, 1))*Z + V + 0.001*np.random.multivariate_normal(np.zeros(d), np.identity(d), N).reshape(d, N)
+    X = np.dot(np.ones((d, q)), Z) + V + 0.001*np.random.multivariate_normal(np.zeros(d), np.identity(d), N).reshape(d, N)
     
-    Y = np.dot(np.array([1, 1, 1]), X) + 1*Z + 0.001*np.random.standard_normal(N)
+    
+    g = np.zeros((1, d))
+    g[0, 0:d0] = 1
+    Y = np.dot(g, X) + 1*Z + 0.001*np.random.standard_normal(N)
     
     D_j = np.zeros(d)
     for j in range (d):
@@ -118,7 +124,7 @@ for iteration in range(max_iteration):
     # Training (Data fitting OLS-SPICE)
     # =============================================================================
     
-    theta = cp.reshape(cp.Variable(d), (d, 1))
+    theta = cp.reshape(cp.Variable((d, q)), (d, q))
     
     def loss_fn_1(A, B, theta):
         return cp.norm(B - cp.matmul(cp.atoms.affine.transpose.transpose(theta), A)) 
@@ -126,11 +132,11 @@ for iteration in range(max_iteration):
     def regularizer_1(theta):
         return cp.norm(cp.matmul(D_new, theta), 1)
     
-#    def objective_fn_1(A, B, theta):
-#        return loss_fn_1(A, B, theta) + regularizer_1(theta)
-    
     def objective_fn_1(A, B, theta):
-        return loss_fn_1(A, B, theta)
+        return loss_fn_1(A, B, theta) + regularizer_1(theta)
+    
+#    def objective_fn_1(A, B, theta):
+#        return loss_fn_1(A, B, theta)
     
     problem_1 = cp.Problem(cp.Minimize(objective_fn_1(A, B, theta)))
     problem_1.solve()
@@ -139,7 +145,7 @@ for iteration in range(max_iteration):
     # Unconstrained optimal    
     # =============================================================================
     
-    w_opt = cp.reshape(cp.Variable(d), (d, 1))
+    w_opt = cp.reshape(cp.Variable((d, q)), (d, q))
     
     def loss_fn_2(X, Y, w_opt):
         return cp.norm(Y - cp.matmul(cp.atoms.affine.transpose.transpose(w_opt), X)) 
@@ -147,11 +153,11 @@ for iteration in range(max_iteration):
     def regularizer_2(w_opt):
         return cp.norm(cp.matmul(D, w_opt), 1)
     
-#    def objective_fn_2(X, Y, w_opt):
-#        return loss_fn_2(X, Y, w_opt) + regularizer_2(w_opt)
-    
     def objective_fn_2(X, Y, w_opt):
-        return loss_fn_2(X, Y, w_opt)
+        return loss_fn_2(X, Y, w_opt) + regularizer_2(w_opt)
+    
+#    def objective_fn_2(X, Y, w_opt):
+#        return loss_fn_2(X, Y, w_opt)
     
     problem_2 = cp.Problem(cp.Minimize(objective_fn_2(X, Y, w_opt)))
     problem_2.solve()
@@ -160,17 +166,17 @@ for iteration in range(max_iteration):
     # Predict z first, then y  
     # =============================================================================
     
-    w_z = cp.reshape(cp.Variable(d), (d, 1))
+    w_z = cp.reshape(cp.Variable((d, q)), (d, q))
     
     def loss_fn_3(X, Z, w_z):
         return cp.norm(Z - cp.matmul(cp.atoms.affine.transpose.transpose(w_z), X)) 
     
-#    def objective_fn_3(X, Z, w_z):
-#        return loss_fn_3(X, Z, w_z) + regularizer_2(w_z)
-    
     def objective_fn_3(X, Z, w_z):
-        return loss_fn_3(X, Z, w_z)
+        return loss_fn_3(X, Z, w_z) + regularizer_2(w_z)
     
+#    def objective_fn_3(X, Z, w_z):
+#        return loss_fn_3(X, Z, w_z)
+#    
     problem_3 = cp.Problem(cp.Minimize(objective_fn_3(X, Z, w_z)))
     problem_3.solve()
     
@@ -189,26 +195,27 @@ for iteration in range(max_iteration):
     Z_tail = np.zeros(N)
     Z_tail[Z_tail_index] = 1    
     Z_predict_train = np.dot(np.transpose(w_z), X.reshape(d,N))
-#    Z_distance = np.zeros(N)
-#    for i in range(N):
-#        Z_distance[i] = distance.mahalanobis(Z_predict_train[:, i], np.zeros(q), np.cov(Z_predict_train)) - np.sqrt(np.cov(Z_predict_train)/alpha)
-#        
-#    clf = LogisticRegression(random_state=0, solver='lbfgs', fit_intercept=False)
-#    clf.fit(Z_distance.reshape(-1, 1), Z_tail)
+    Z_distance = np.zeros(N)
+    for i in range(N):
+        Z_distance[i] = distance.mahalanobis(Z_predict_train[:, i], np.zeros(q), np.cov(Z_predict_train)) - np.sqrt(np.cov(Z_predict_train)/alpha)
+        
+    clf = LogisticRegression(random_state=0, solver='lbfgs', fit_intercept=False)
+    if np.sum(Z_tail) == 0:
+        K = 1
+    else:        
+        clf.fit(Z_distance.reshape(-1, 1), Z_tail)
+        K = clf.coef_
     
     # Threshold 
     T = np.sqrt(np.cov(Z_predict_train)/alpha)
-#    K = clf.coef_
-    K = 10
-    
     
     # Generated finite sample (size N) testing data
     Z_test = np.transpose(np.random.standard_t(df, N_test)).reshape((q, N_test))
     
     V_test = np.transpose(multivariate_t_rvs(np.zeros(d), Sigma_x, df, N_test))
-    X_test = np.ones((d, 1))*Z_test + V_test + 0.001*np.random.multivariate_normal(np.zeros(d), np.identity(d), N_test).reshape(d, N_test)
+    X_test = np.dot(np.ones((d, q)), Z_test) + V_test + 0.001*np.random.multivariate_normal(np.zeros(d), np.identity(d), N_test).reshape(d, N_test)
     
-    Y_test = np.dot(np.array([1, 1, 1]), X_test) + 1*Z_test + 0.001*np.random.standard_normal(N_test)
+    Y_test = np.dot(g, X_test) + 1*Z_test + 0.001*np.random.standard_normal(N_test)
     
     
     # Robust 
@@ -271,20 +278,20 @@ print("const_tail_average = %.4f" %ratio_tail_const_average)
 print("combine_typical_average = %.4f" %ratio_normal_combine_average)
 print("combine_tail_average = %.4f" %ratio_tail_combine_average)
 
-print("const_typical_median = %.4f" %ratio_normal_const_median)
-print("const_tail_median = %.4f" %ratio_tail_const_median)
-print("combine_typical_median = %.4f" %ratio_normal_combine_median)
-print("combine_tail_median = %.4f" %ratio_tail_combine_median)
+#print("const_typical_median = %.4f" %ratio_normal_const_median)
+#print("const_tail_median = %.4f" %ratio_tail_const_median)
+#print("combine_typical_median = %.4f" %ratio_normal_combine_median)
+#print("combine_tail_median = %.4f" %ratio_tail_combine_median)
 
-rv = studentt(df=df, loc=0, scale=1)
-z = np.linspace(rv.ppf(0.000001), rv.ppf(0.999999), 1000)
-p_z = rv.pdf(z) 
-log_p_z = np.log(p_z)
-
-
-
-Z_reshaped = Z.reshape(N)
-
+#rv = studentt(df=df, loc=0, scale=1)
+#z = np.linspace(rv.ppf(0.000001), rv.ppf(0.999999), 1000)
+#p_z = rv.pdf(z) 
+#log_p_z = np.log(p_z)
+#
+#
+#
+#Z_reshaped = Z.reshape(N)
+#
 #plt.figure()
 #plt.plot(z, p_z, label=r'$p(z)$', color = 'k')
 #plt.hist(Z_reshaped, color='gray', bins=10, density=True)
@@ -295,26 +302,25 @@ Z_reshaped = Z.reshape(N)
 #plt.xlim([-20, 20])
 #plt.ylim([1e-5, 1])
 #plt.savefig("z_density.pdf", bbox_inches='tight')
-
-
-Z_predict_train = np.dot(np.transpose(w_z), X.reshape(d,N))
-
-Z_distance = np.zeros(N)
-for i in range(N):
-    Z_distance[i] = distance.mahalanobis(Z_predict_train[:, i], np.zeros(q), np.cov(Z_predict_train)) - np.sqrt(np.cov(Z_predict_train)/alpha)
-#    Z_distance[i] = distance.mahalanobis(Z_predict_train[:, i], np.zeros(q), np.cov(Z_predict_train))
-    
-clf = LogisticRegression(random_state=0, solver='lbfgs',  fit_intercept=False)
-clf.fit(Z_distance.reshape(-1, 1), Z_tail)
-
-prob_Y_X = clf.predict_proba(np.sort(Z_distance).reshape(-1, 1))
-
-plt.figure()
-plt.plot(Z_distance[Z_tail_index == 1]+np.sqrt(np.cov(Z_predict_train)/alpha), Z_tail[Z_tail_index == 1], 'r.', label = 'Tail', marker='o', markersize=8)
-plt.plot(Z_distance[Z_tail_index == 0]+np.sqrt(np.cov(Z_predict_train)/alpha), Z_tail[Z_tail_index == 0], 'b.', label = 'Typical', marker='+', markersize=8)
-plt.plot(np.sort(Z_distance)+np.sqrt(np.cov(Z_predict_train)/alpha), prob_Y_X[:, 1], 'k--', linewidth=2, label = 'Probability')
-plt.yticks([0, 1], [0, 1])
-plt.xlabel(r'$\delta(\bm{x})$')
-plt.ylabel(r'$\widehat{\Pr}\ (z \in \mathcal{Z}_{\alpha}\ |\ \bm{x})$')
-plt.legend()
-plt.savefig("logistic_regression.pdf", bbox_inches='tight')
+#
+#
+#Z_predict_train = np.dot(np.transpose(w_z), X.reshape(d,N))
+#
+#Z_distance = np.zeros(N)
+#for i in range(N):
+#    Z_distance[i] = distance.mahalanobis(Z_predict_train[:, i], np.zeros(q), np.cov(Z_predict_train)) - np.sqrt(np.cov(Z_predict_train)/alpha)
+#    
+#clf = LogisticRegression(random_state=0, solver='lbfgs', fit_intercept=False)
+#clf.fit(Z_distance.reshape(-1, 1), Z_tail)
+#
+#prob_Y_X = clf.predict_proba(np.sort(Z_distance).reshape(-1, 1))
+#
+#plt.figure()
+#plt.plot(Z_distance[Z_tail_index == 1], Z_tail[Z_tail_index == 1], 'r.', label = 'Tail', marker='o', markersize=8)
+#plt.plot(Z_distance[Z_tail_index == 0], Z_tail[Z_tail_index == 0], 'b.', label = 'Typical', marker='+', markersize=8)
+#plt.plot(np.sort(Z_distance), prob_Y_X[:, 1], 'k--', linewidth=2, label = 'Probability')
+#plt.yticks([0, 1], [0, 1])
+#plt.xlabel(r'$\delta(\bm{x})$')
+#plt.ylabel(r'$\widehat{\Pr}\ (z \in \mathcal{Z}_{\alpha}\ |\ \bm{x})$')
+#plt.legend()
+#plt.savefig("logistic_regression.pdf", bbox_inches='tight')
