@@ -67,9 +67,9 @@ def multivariate_t_rvs(m, S, df=np.inf, n=1):
 
 # Split to x, y, z
 # feature = (x, z), target = (y)
-d = 5    # dimension of x
+d = 3    # dimension of x
 d0 = 3
-q = 2    # dimension of z
+q = 1    # dimension of z
 df = 3
 # Covariance matrices
 #Sigma_x = np.array([[1, .5, .5],
@@ -81,7 +81,7 @@ np.fill_diagonal(Sigma_x, 1)
 # Generated finite sample (size N) training data
 N = np.int(100)
 N_test = np.int(1e6)
-max_iteration = 1
+max_iteration = 50
 alpha = 0.1
 
 ratio_normal_const = np.zeros(max_iteration)
@@ -89,6 +89,14 @@ ratio_normal_combine = np.zeros(max_iteration)
 
 ratio_tail_const = np.zeros(max_iteration)
 ratio_tail_combine = np.zeros(max_iteration)
+
+MSE_const_tail = np.zeros(max_iteration)
+MSE_unconst_tail = np.zeros(max_iteration)
+MSE_combine_tail = np.zeros(max_iteration)
+
+MSE_const_normal = np.zeros(max_iteration)
+MSE_unconst_normal = np.zeros(max_iteration)
+MSE_combine_normal = np.zeros(max_iteration)
 
 for iteration in range(max_iteration):
     t = time.time()
@@ -246,19 +254,19 @@ for iteration in range(max_iteration):
     index_tail = np.logical_or(Z_test < -np.sqrt(1/alpha)*Z_std , Z_test > np.sqrt(1/alpha)*Z_std)
     index_typical = np.logical_or(Z_test > -np.sqrt(1/alpha)*Z_std , Z_test < np.sqrt(1/alpha)*Z_std)
     
-    MSE_const_tail = mean_squared_error(Y_test[index_tail], Y_predict_const[index_tail]) 
-    MSE_unconst_tail = mean_squared_error(Y_test[index_tail], Y_predict_unconst[index_tail]) 
-    MSE_combine_tail = mean_squared_error(Y_test[index_tail], Y_predict_combine[index_tail]) 
+    MSE_const_tail[iteration] = mean_squared_error(Y_test[index_tail], Y_predict_const[index_tail]) 
+    MSE_unconst_tail[iteration] = mean_squared_error(Y_test[index_tail], Y_predict_unconst[index_tail]) 
+    MSE_combine_tail[iteration] = mean_squared_error(Y_test[index_tail], Y_predict_combine[index_tail]) 
     
-    MSE_const_normal = mean_squared_error(Y_test[index_typical], Y_predict_const[index_typical]) 
-    MSE_unconst_normal = mean_squared_error(Y_test[index_typical], Y_predict_unconst[index_typical]) 
-    MSE_combine_normal = mean_squared_error(Y_test[index_typical], Y_predict_combine[index_typical]) 
+    MSE_const_normal[iteration] = mean_squared_error(Y_test[index_typical], Y_predict_const[index_typical]) 
+    MSE_unconst_normal[iteration] = mean_squared_error(Y_test[index_typical], Y_predict_unconst[index_typical]) 
+    MSE_combine_normal[iteration] = mean_squared_error(Y_test[index_typical], Y_predict_combine[index_typical]) 
      
-    ratio_normal_const[iteration] = MSE_const_normal/MSE_unconst_normal - 1
-    ratio_normal_combine[iteration] = MSE_combine_normal/MSE_unconst_normal - 1
+    ratio_normal_const[iteration] = MSE_const_normal[iteration]/MSE_unconst_normal[iteration] - 1
+    ratio_normal_combine[iteration] = MSE_combine_normal[iteration]/MSE_unconst_normal[iteration] - 1
     
-    ratio_tail_const[iteration] = MSE_const_tail/MSE_unconst_tail - 1
-    ratio_tail_combine[iteration] = MSE_combine_tail/MSE_unconst_tail - 1
+    ratio_tail_const[iteration] = MSE_const_tail[iteration]/MSE_unconst_tail[iteration] - 1
+    ratio_tail_combine[iteration] = MSE_combine_tail[iteration]/MSE_unconst_tail[iteration] - 1
     
     elapsed = time.time() - t
     print(elapsed)
@@ -324,3 +332,40 @@ print("combine_tail_average = %.4f" %ratio_tail_combine_average)
 #plt.ylabel(r'$\widehat{\Pr}\ (z \in \mathcal{Z}_{\alpha}\ |\ \bm{x})$')
 #plt.legend()
 #plt.savefig("logistic_regression.pdf", bbox_inches='tight')
+
+#w_o = [MSE_unconst_normal, MSE_unconst_tail]
+#w_c = [MSE_const_normal, MSE_const_tail]
+#w = [MSE_combine_normal, MSE_combine_tail]
+#
+#
+#normal = [MSE_unconst_normal, MSE_const_normal, MSE_combine_normal]
+#tail = [MSE_unconst_tail, MSE_const_tail, MSE_combine_tail]
+
+
+#plt.figure()
+#plt.boxplot(normal, 
+#            labels=[r"$\widehat{\bm{w}}_{o}$", r"$\widehat{\bm{w}}_{c}$", r"$\widehat{\bm{w}}(\bm{x})$"], 
+#            whis = 'range')
+#plt.ylim([0, 1.2*max(max(normal[0]), max(normal[1]), max(normal[2]))])
+#
+#plt.figure()
+#plt.boxplot(tail, 
+#            labels=[r"$\widehat{\bm{w}}_{o}$", r"$\widehat{\bm{w}}_{c}$", r"$\widehat{\bm{w}}(\bm{x})$"], 
+#            whis = 'range')
+#plt.ylim([0, 1.2*max(max(tail[0]), max(tail[1]), max(tail[2]))])
+#
+#plt.figure()
+#plt.subplot(1,2,1)
+#plt.boxplot(normal, 
+#            labels=[r"$\widehat{\bm{w}}_{o}$", r"$\widehat{\bm{w}}_{c}$", r"$\widehat{\bm{w}}(\bm{x})$"], 
+#            whis = 'range')
+#plt.ylim([0, 1.2*max(max(normal[0]), max(normal[1]), max(normal[2]))])
+#plt.title(r"MSE$_{1-\alpha}$")
+#
+#plt.subplot(1,2,2)
+#plt.boxplot(tail, 
+#            labels=[r"$\widehat{\bm{w}}_{o}$", r"$\widehat{\bm{w}}_{c}$", r"$\widehat{\bm{w}}(\bm{x})$"], 
+#            whis = 'range')
+#plt.ylim([0, 1.2*max(max(tail[0]), max(tail[1]), max(tail[2]))])
+#plt.title(r"MSE$_{\alpha}$")
+#plt.savefig("boxplot.pdf", bbox_inches='tight')

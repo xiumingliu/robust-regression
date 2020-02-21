@@ -73,7 +73,7 @@ def broadcasting_app(a, L, S ):  # Window len = L, Stride len/stepsize = S
 # =============================================================================
 # Data
 # =============================================================================
-L = 56
+L = 7
 d = 2*L
 X = np.concatenate((np.transpose(broadcasting_app(nox_daily_average_transformed, L, 1)), np.transpose(broadcasting_app(ozone_daily_average_transformed, L, 1))))
 #X = np.concatenate((X, np.ones((1, np.shape(X)[1]))))
@@ -132,11 +132,11 @@ def loss_fn_1(A, B, theta):
 def regularizer_1(theta):
     return cp.norm(cp.matmul(D_new, theta), 1)
 
-def objective_fn_1(A, B, theta):
-    return loss_fn_1(A, B, theta) + regularizer_1(theta)
-
 #def objective_fn_1(A, B, theta):
-#    return loss_fn_1(A, B, theta)
+#    return loss_fn_1(A, B, theta) + regularizer_1(theta)
+
+def objective_fn_1(A, B, theta):
+    return loss_fn_1(A, B, theta)
 
 problem_1 = cp.Problem(cp.Minimize(objective_fn_1(A, B, theta)))
 problem_1.solve()
@@ -155,11 +155,11 @@ def loss_fn_2(X_training, Y_training, w_opt):
 def regularizer_2(w_opt):
     return cp.norm(cp.matmul(D, w_opt), 1)
 
-def objective_fn_2(X_training, Y_training, w_opt):
-    return loss_fn_2(X_training, Y_training, w_opt) + regularizer_2(w_opt)
-
 #def objective_fn_2(X_training, Y_training, w_opt):
-#    return loss_fn_2(X_training, Y_training, w_opt)
+#    return loss_fn_2(X_training, Y_training, w_opt) + regularizer_2(w_opt)
+
+def objective_fn_2(X_training, Y_training, w_opt):
+    return loss_fn_2(X_training, Y_training, w_opt)
 
 problem_2 = cp.Problem(cp.Minimize(objective_fn_2(X_training, Y_training, w_opt)))
 problem_2.solve()
@@ -174,11 +174,11 @@ w_z = cp.reshape(cp.Variable(d), (d, 1))
 def loss_fn_3(X_training, Z_training, w_z):
     return cp.norm(Z_training - cp.matmul(cp.atoms.affine.transpose.transpose(w_z), X_training)) 
 
-def objective_fn_3(X_training, Z_training, w_z):
-    return loss_fn_3(X_training, Z_training, w_z) + regularizer_2(w_z)
-
 #def objective_fn_3(X_training, Z_training, w_z):
-#    return loss_fn_3(X_training, Z_training, w_z)
+#    return loss_fn_3(X_training, Z_training, w_z) + regularizer_2(w_z)
+
+def objective_fn_3(X_training, Z_training, w_z):
+    return loss_fn_3(X_training, Z_training, w_z)
 
 problem_3 = cp.Problem(cp.Minimize(objective_fn_3(X_training, Z_training, w_z)))
 problem_3.solve()

@@ -76,9 +76,9 @@ Sigma_xz = np.array([[1, .5, .5, .5],
                     [.5, .5, .5, 1]])
 
 # Generated finite sample (size N) training data
-N = np.int(1e3)
+N = np.int(100)
 N_test = np.int(1e6)
-max_iteration = 1
+max_iteration = 50
 
 ratio_normal_const = np.zeros(max_iteration)
 ratio_normal_combine = np.zeros(max_iteration)
@@ -260,24 +260,24 @@ print("const_tail_median = %.4f" %ratio_tail_const_median)
 print("combine_typical_median = %.4f" %ratio_normal_combine_median)
 print("combine_tail_median = %.4f" %ratio_tail_combine_median)
 
-plt.figure()
-plt.hist(Z.reshape(N), density=True)
-plt.yscale('log')
-plt.xlim([-20, 20])
-
-Z_tail_index = np.logical_or(Z.reshape(N) < -np.sqrt(1/alpha)*np.std(Z), Z.reshape(N) > np.sqrt(1/alpha)*np.std(Z))
-Z_tail = np.zeros(N)
-Z_tail[Z_tail_index] = 1
-
-X_distance = np.zeros(N)
-for i in range(N):
-    X_distance[i] = distance.mahalanobis(X[0:d, i], np.zeros(d), Sigma_xz[0:d, 0:d])
-
 #plt.figure()
-#plt.plot(X_distance, Z_tail, '.')
-
-plt.figure()
-sns.regplot(X_distance, Z_tail, logistic=True)
-plt.yticks([0, 1], ['Typical $z$', 'Tail $z$'])
-plt.xlabel('Mahalanobis distance between a realization of $X$ and $p(x)$')
-#plt.ylabel('Y')
+#plt.hist(Z.reshape(N), density=True)
+#plt.yscale('log')
+#plt.xlim([-20, 20])
+#
+#Z_tail_index = np.logical_or(Z.reshape(N) < -np.sqrt(1/alpha)*np.std(Z), Z.reshape(N) > np.sqrt(1/alpha)*np.std(Z))
+#Z_tail = np.zeros(N)
+#Z_tail[Z_tail_index] = 1
+#
+#X_distance = np.zeros(N)
+#for i in range(N):
+#    X_distance[i] = distance.mahalanobis(X[0:d, i], np.zeros(d), Sigma_xz[0:d, 0:d])
+#
+##plt.figure()
+##plt.plot(X_distance, Z_tail, '.')
+#
+#plt.figure()
+#sns.regplot(X_distance, Z_tail, logistic=True)
+#plt.yticks([0, 1], ['Typical $z$', 'Tail $z$'])
+#plt.xlabel('Mahalanobis distance between a realization of $X$ and $p(x)$')
+##plt.ylabel('Y')

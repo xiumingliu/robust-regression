@@ -84,7 +84,7 @@ for iter in range(iter_max):
     t = time.time()
     
     # Generated finite sample (size N) training data
-    N = 200
+    N = 1000
     Z = np.transpose(np.random.standard_t(df, N)).reshape((q, N))
     
 #    V = np.transpose(np.random.multivariate_normal(np.zeros(d), Sigma_x, N))
@@ -184,7 +184,7 @@ for iter in range(iter_max):
     K = 1
     
     
-    num_test = 100
+    num_test = 1000
     for j in range(0, 105, 1):
         z = -10 + j*.2
 
@@ -284,9 +284,9 @@ plt.ylim((0.0001, 1))
 #plt.legend(loc=2)   
 plt.xlabel("$z$")
 ax2.set_yscale('log')
-plt.ylabel("Density")
+plt.ylabel("$p(z)$")
 
-#plt.savefig("v=3.pdf", bbox_inches='tight')
+plt.savefig("v=3_new.pdf", bbox_inches='tight')
 
 #plt.figure(figsize=(5, 5))
 #probplot(Z.reshape(N), plot=plt)
